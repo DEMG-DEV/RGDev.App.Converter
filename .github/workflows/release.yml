@@ -22,18 +22,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
+          cache: 'npm'
 
       - name: Install Dependencies
-        run: pnpm install
+        run: npm install
 
       - name: Build CSS
-        run: pnpm build:css --minify
+        run: npm run build:css -- --minify
 
       - name: Build & Release
         uses: samuelmeuli/action-electron-builder@v1
