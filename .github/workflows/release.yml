@@ -36,12 +36,6 @@ jobs:
         run: pnpm build:css --minify
 
       - name: Build & Release
-        uses: samuelmeuli/action-electron-builder@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          release: true
         env:
-          # Varies based on signing needs. For simple builds/tests without signing:
-          # CSC_IDENTITY_AUTO_DISCOVERY: false 
-          # Or if signing is needed, secrets would be used here.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm exec electron-builder --publish always

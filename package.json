@@ -12,6 +12,7 @@
     },
     "build": {
         "appId": "com.rgdev.mediaconverter",
+        "publish": "github",
         "productName": "Media Converter",
         "directories": {
             "output": "release"
