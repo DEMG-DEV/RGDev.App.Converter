@@ -69,11 +69,11 @@ ipcMain.on('conversion:start', (event, { files, outputDir, format, quality = 80 
 
         // Format specific settings
         if (format === 'video') {
-            // Map 0-100 quality to CRF 63-15 (reversed)
-            // 100 -> 15 (Best)
+            // Map 0-100 quality to CRF 63-24 (reversed)
+            // 100 -> 24 (Excellent for web, cleaner file size)
             // 0 -> 63 (Worst)
-            // Formula: 63 - (quality / 100 * 48)
-            const crf = Math.round(63 - (quality / 100 * 48));
+            // Formula: 63 - (quality / 100 * 39)
+            const crf = Math.round(63 - (quality / 100 * 39));
             
             command
                 .output(outputPath)
