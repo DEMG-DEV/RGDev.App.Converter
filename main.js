@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
 
 const ffmpegPath = require('ffmpeg-static').replace(
@@ -21,9 +22,7 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,
             contextIsolation: true
-        },
-        titleBarStyle: 'hiddenInset',
-        backgroundColor: '#121212'
+        }
     });
 
     win.loadFile('index.html');
@@ -57,7 +56,7 @@ ipcMain.handle('dialog:openDirectory', async () => {
     }
 });
 
-ipcMain.on('conversion:start', (event, { files, outputDir, format }) => {
+ipcMain.on('conversion:start', (event, { files, outputDir, format, quality = 80 }) => {
     const sender = event.sender;
 
     files.forEach(file => {
@@ -70,16 +69,24 @@ ipcMain.on('conversion:start', (event, { files, outputDir, format }) => {
 
         // Format specific settings
         if (format === 'video') {
+            // Map 0-100 quality to CRF 63-15 (reversed)
+            // 100 -> 15 (Best)
+            // 0 -> 63 (Worst)
+            // Formula: 63 - (quality / 100 * 48)
+            const crf = Math.round(63 - (quality / 100 * 48));
+            
             command
                 .output(outputPath)
                 .videoCodec('libvpx-vp9')
                 .audioCodec('libopus')
-                // Basic quality presets for WebM
-                .outputOptions('-crf 30')
+                .outputOptions(`-crf ${crf}`)
                 .outputOptions('-b:v 0');
         } else {
             // WebP Image
-            command.output(outputPath);
+            // Map 0-100 directly
+            command
+                .output(outputPath)
+                .outputOptions(`-q:v ${quality}`);
         }
 
         command
@@ -111,11 +118,31 @@ ipcMain.on('conversion:start', (event, { files, outputDir, format }) => {
                 });
             })
             .on('end', () => {
-                sender.send('conversion:progress', {
-                    fileId: file.id,
-                    percent: 100,
-                    status: 'Completed'
-                });
+                // Calculate Savings
+                try {
+                    const originalSize = fs.statSync(inputPath).size;
+                    const newSize = fs.statSync(outputPath).size;
+                    const savingsBytes = originalSize - newSize;
+                    const savingsPercent = ((savingsBytes / originalSize) * 100).toFixed(1);
+                    
+                    sender.send('conversion:progress', {
+                        fileId: file.id,
+                        percent: 100,
+                        status: 'Completed',
+                        stats: {
+                            originalSize,
+                            newSize,
+                            savingsPercent
+                        }
+                    });
+                } catch (e) {
+                    console.error('Error calculating stats:', e);
+                    sender.send('conversion:progress', {
+                        fileId: file.id,
+                        percent: 100,
+                        status: 'Completed'
+                    });
+                }
             })
             .run();
     });

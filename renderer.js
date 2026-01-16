@@ -6,43 +6,56 @@ const btnStart = document.getElementById('btn-start');
 const progressList = document.getElementById('progress-list');
 const emptyState = document.getElementById('empty-state');
 const formatSelect = document.getElementById('format-select');
+const qualitySlider = document.getElementById('quality-slider');
+const qualityValue = document.getElementById('quality-value');
 const globalStatus = document.getElementById('global-status');
 const btnClear = document.getElementById('btn-clear');
+const queueBadge = document.getElementById('queue-badge');
 
 let filesToConvert = [];
 let outputDirectory = '';
 let completedCount = 0;
 
+// Update Slider Value Display
+if (qualitySlider && qualityValue) {
+    qualitySlider.addEventListener('input', (e) => {
+        qualityValue.textContent = `${e.target.value}%`;
+    });
+}
+
 // --- Drag & Drop Handling ---
 dropZone.addEventListener('dragover', (e) => {
-    if (btnStart.disabled && btnStart.innerText === 'Processing...') return;
+    if (btnStart.disabled && btnStart.querySelector('span').innerText === 'Processing...') return;
     e.preventDefault();
     e.stopPropagation();
-    dropZone.classList.add('border-accent', 'bg-opacity-10', 'bg-white');
+    dropZone.classList.add('border-primary', 'bg-slate-800/60');
+    dropZone.classList.remove('border-slate-600/30');
 });
 
 dropZone.addEventListener('dragleave', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    dropZone.classList.remove('border-accent', 'bg-opacity-10', 'bg-white');
+    dropZone.classList.remove('border-primary', 'bg-slate-800/60');
+    dropZone.classList.add('border-slate-600/30');
 });
 
 dropZone.addEventListener('drop', (e) => {
-    if (btnStart.disabled && btnStart.innerText === 'Processing...') {
+    if (btnStart.disabled && btnStart.querySelector('span').innerText === 'Processing...') {
         e.preventDefault();
         e.stopPropagation();
         return;
     }
     e.preventDefault();
     e.stopPropagation();
-    dropZone.classList.remove('border-accent', 'bg-opacity-10', 'bg-white');
+    dropZone.classList.remove('border-primary', 'bg-slate-800/60');
+    dropZone.classList.add('border-slate-600/30');
 
     const files = Array.from(e.dataTransfer.files);
     handleFilesAdded(files);
 });
 
 dropZone.addEventListener('click', () => {
-    if (btnStart.disabled && btnStart.innerText === 'Processing...') return;
+    if (btnStart.disabled && btnStart.querySelector('span').innerText === 'Processing...') return;
     fileInput.click();
 });
 
@@ -75,26 +88,40 @@ function handleFilesAdded(files) {
         updateGlobalStatus();
         if (filesToConvert.length > 0) {
             btnClear.classList.remove('hidden');
+            queueBadge.classList.remove('hidden');
+            queueBadge.textContent = filesToConvert.length;
         }
     }
 }
 
 function updateGlobalStatus() {
-    globalStatus.textContent = `${filesToConvert.length} files queued.`;
+    globalStatus.innerHTML = `
+        <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+        ${filesToConvert.length} files queued ready.
+    `;
 }
 
 function addProgressItem(file) {
     const item = document.createElement('div');
     item.id = `item-${file.id}`;
-    item.className = 'bg-dark-card rounded-lg p-3 shadow-sm border border-gray-800 fade-in';
+    //item.className = 'bg-dark-card rounded-lg p-3 shadow-sm border border-gray-800 fade-in';
+    item.className = 'bg-slate-800/40 hover:bg-slate-800/60 rounded-lg p-3 border border-slate-700/30 transition-colors group animate-fade-in';
+    
     item.innerHTML = `
         <div class="flex justify-between items-center mb-2">
-            <span class="text-sm font-medium text-white truncate max-w-[70%]">${file.name}</span>
-            <span id="status-${file.id}" class="text-xs text-gray-500">Queued</span>
+            <div class="flex items-center gap-3 overflow-hidden">
+                    <div class="w-8 h-8 rounded bg-slate-700/50 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <span class="text-xs font-medium text-slate-200 truncate">${file.name}</span>
+            </div>
+            <span id="status-${file.id}" class="text-[10px] font-mono text-slate-400 bg-slate-700/30 px-2 py-0.5 rounded">Queued</span>
         </div>
-        <div class="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
-            <div id="bar-${file.id}" class="bg-accent h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
-        </div>
+        <div class="h-1.5 w-full bg-slate-700/50 rounded-full overflow-hidden">
+            <div id="bar-${file.id}" class="h-full bg-primary w-0 rounded-full relative overflow-hidden transition-all duration-300">
+                <div class="absolute inset-0 bg-white/20"></div>
+            </div>
+         </div>
     `;
     progressList.appendChild(item);
 }
@@ -122,20 +149,22 @@ btnStart.addEventListener('click', () => {
     }
 
     const format = formatSelect.value;
+    const quality = qualitySlider ? qualitySlider.value : 80;
 
     // Reset counters
     completedCount = 0;
 
     // Disable inputs
     btnStart.disabled = true;
-    btnStart.innerText = 'Processing...';
+    const btnText = btnStart.querySelector('span');
+    if(btnText) btnText.innerText = 'Processing...';
 
     // Disable Clear while processing
     btnClear.disabled = true;
     btnClear.classList.add('opacity-50', 'cursor-not-allowed');
 
     // Send to Main
-    window.api.startConversion(filesToConvert, outputDirectory, format);
+    window.api.startConversion(filesToConvert, outputDirectory, format, quality);
 });
 
 // --- Clear All ---
@@ -147,11 +176,18 @@ btnClear.addEventListener('click', () => {
 
     completedCount = 0;
 
-    updateGlobalStatus();
+    //updateGlobalStatus(); // Custom logic below
+    globalStatus.innerHTML = `
+        <span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+        Ready to convert.
+    `;
+    queueBadge.classList.add('hidden');
+    queueBadge.textContent = '0';
 
     // Reset buttons
     btnStart.disabled = false;
-    btnStart.innerText = 'Start Conversion';
+    const btnText = btnStart.querySelector('span');
+    if(btnText) btnText.innerText = 'Start Conversion';
 
     btnClear.classList.add('hidden');
 
@@ -163,7 +199,7 @@ btnClear.addEventListener('click', () => {
 
 // --- Progress Updates ---
 window.api.onProgress((data) => {
-    const { fileId, percent, status } = data;
+    const { fileId, percent, status, stats } = data;
 
     const statusEl = document.getElementById(`status-${fileId}`);
     const barEl = document.getElementById(`bar-${fileId}`);
@@ -173,13 +209,22 @@ window.api.onProgress((data) => {
         barEl.style.width = `${percent}%`;
 
         if (status === 'Completed') {
-            statusEl.classList.add('text-success');
-            barEl.classList.remove('bg-accent');
-            barEl.classList.add('bg-success');
+            statusEl.className = 'text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded';
+            barEl.classList.remove('bg-primary');
+            barEl.classList.add('bg-emerald-500');
+            
+            if (stats && stats.savingsPercent) {
+                const saved = parseFloat(stats.savingsPercent);
+                if (saved > 0) {
+                     statusEl.textContent = `Saved ${stats.savingsPercent}%`;
+                } else {
+                     statusEl.textContent = `Completed`;
+                }
+            }
         } else if (status === 'Error') {
-            statusEl.classList.add('text-error');
-            barEl.classList.remove('bg-accent');
-            barEl.classList.add('bg-error');
+            statusEl.className = 'text-[10px] font-mono text-red-400 bg-red-500/10 px-2 py-0.5 rounded';
+            barEl.classList.remove('bg-primary');
+            barEl.classList.add('bg-red-500');
         }
     }
 
@@ -193,11 +238,15 @@ window.api.onProgress((data) => {
 function checkAllDone() {
     if (completedCount >= filesToConvert.length) {
         btnStart.disabled = false;
-        btnStart.innerText = 'Start Conversion';
+        const btnText = btnStart.querySelector('span');
+        if(btnText) btnText.innerText = 'Start Conversion';
 
         btnClear.disabled = false;
         btnClear.classList.remove('opacity-50', 'cursor-not-allowed');
 
-        globalStatus.textContent = `Batch completed. ${completedCount} files processed.`;
+        globalStatus.innerHTML = `
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            Batch completed. ${completedCount} files processed.
+        `;
     }
 }
